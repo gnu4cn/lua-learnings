@@ -34,3 +34,4 @@
 - [元表与元方法](metatables_and_metamethods.md)
 - [面向对象编程](oop.md)
 - [环境](env.md)
+- [垃圾回收](garbage.md)
