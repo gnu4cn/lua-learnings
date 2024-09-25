@@ -109,3 +109,30 @@ function createRGB (r, g, b)
     return {red = r, green = g, blue = b}
 end
 ```
+
+运用记忆术，我们可以对相同颜色重用同一个表。要为每种颜色创建一个唯一键，我们只需将颜色索引连接起来，其间用分隔符隔开即可：
+
+
+```lua
+local results = {}
+setmetatable(results, {__mode = "v"})   -- 使值成为弱值
+function createRGB (r, g, b)
+    local key = string.format("%d-%d-%d", r, g, b)
+    local color = results[key]
+    if color == nil then
+        color = {red = r, green = g, blue = b}
+        results[key] = color
+    end
+    return color
+end
+```
+
+这种实现方式的一个有趣结果是，用户可以使用原始相等运算符，the primitive equality operator，`==`，来比较颜色，这是因为两种共存的相等颜色，总是由同一个表来表示的。任何给定颜色，都可以在不同时间由不同表来表示，因为垃圾回收器会不时清除那个 `results` 表。不过，只要给定颜色仍在使用中，其就不会从 `results` 中删除。因此，只要某种颜色存活时间足够长，其就可以与某种新的颜色进行比较，其的表示也就存活了足够长的时间，可以被新颜色重用。
+
+
+## 对象的属性
+
+**Object Attributes**
+
+
+
