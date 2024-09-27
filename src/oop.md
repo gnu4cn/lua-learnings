@@ -565,7 +565,7 @@ Lua 5.4.4  Copyright (C) 1994-2022 Lua.org, PUC-Rio
 
 
 
-## 双重表示
+## 双重表示法
 
 
 **Dual Representation**
