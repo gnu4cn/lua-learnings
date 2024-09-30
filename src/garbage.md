@@ -151,7 +151,48 @@ end
 **Revisiting Tables with Default Values**
 
 
+在名为 [带默认值的表](metatables_and_metamethods.md#带默认值的表) 小节，我们讨论过如何实现带非空，non-nil，缺省值的表。我们曾见识到一种特别技巧，并提到另外两种技巧需要用到弱表，因此我们推迟了对这两种技巧的讨论。现在是重新讨论这个问题的时候了。我们将看到，这两种缺省值技巧，实际上是我们刚讨论过的两种一般技巧：双重表示法和记忆术，的特定应用。
 
+
+在首个方案中，我们使用一个弱表，来将每个表映射到其默认值：
+
+
+```lua
+local defaults = {}
+setmetatable(defaults, {__mode = "k"})
+
+local mt = {__index = function (t) return defaults[t] end}
+
+function setDefault (t, d)
+    defaults[t] = d
+    setmetatable(t, mt)
+end
+```
+
+这是双重表示法的典型用途，我们使用 `defaults[t]` 表示 `t.default`。如果 `defaults` 表没有弱键，他就会将所有带缺省值的表，锚定为永久存在。
+
+
+在第二种解决方案中，我们为各异的默认值使用不同元表，不过每当我们重复某个默认值时，都会重用同一个元表。这就是记忆术的典型应用：
+
+
+```lua
+local metas = {}
+setmetable(metas, {__mode = "v"})
+
+function setDefaults (t, d)
+    local mt = metas[d]
+    if mt == nil then
+        mt = {__index = function () return d end}
+        metas[d] = mt       -- memoize
+    end
+    setmetatable(t, mt)
+end
+```
+
+
+在此情形下，我们使用了弱值，来回收那些不再使用的元表。
+
+有了这两种默认值实现方法，然而哪种最好呢？和往常一样，这取决于具体情况。两者的复杂度和性能都差不多。第一种实现方式需要为每个带有默认值的表（`defaults` 表中的条目）提供少许几个内存字，a few memory words。第二种实现方式则需要数十个内存字，来处理每个不同默认值（一个新表、一个新闭包，外加 `metas` 表中的一个条目）。因此，如果咱们的应用程序有数千个都有数个不同默认值的表，那么第二种实现方式显然更胜一筹。另一方面，如果只有少数几个共用了共同默认值的表，那么咱们应倾向于第一种实现方式。
 
 
 
