@@ -322,4 +322,28 @@ collectgarbage()
 ```
 
 
+第一个被终结的对象是对象 3，他是最后那个被标记的对象。
+
+
+一种常见误解，是认为被回收对象之间的链接，会影响他们终结的顺序。例如，有人会认为上例中的对象 2，必定会在对象 1 之前被终结，因为从 2 到 1 有个链接。但是，链接会形成循环。因此，链接不会对终结器施加任何顺序，therefore, they do not impose any order to finalizers。
+
+
+终结器的另一棘手问题是 *复活，resurrection*。当某个终结器被调用时，他会获取被终结对象作为参数。因此，至少在终结过程中，对象会再次复活。我（作者）把这称为 *短暂复活，transient resurrection*。而比如在终结器运行时，没有什么能阻止他将对象存储到全局变量中，如此在终结器返回后，对象就仍然可以被访问。我（作者）称之为 *永久复活，permanent resurrection*。
+
+
+复活必须是传递性的，must be transitive。请看下面这段代码：
+
+
+```lua
+A = {x = "this is A"}
+B = {f = A}
+
+setmetatable(B, {__gc = function (o) print(o.f.x) end})
+A, B = nil
+collectgarbage()    --> this is A
+```
+
+`B` 的终结器会访问 `A`，因此 `A` 无法在 `B` 终结之前被回收。Lua 必须在运行终结器之前，同时复活 `B` 和 `A`。
+
+
 
