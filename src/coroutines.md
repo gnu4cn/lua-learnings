@@ -22,10 +22,70 @@ Lua 将所有与协程相关的函数，都打包在表 `coroutine` 中。函数
 
 
 ```lua
-#!/usr/bin/env lua
 co = coroutine.create(function () print("hi") end)
 print(type(co))             --> thread
 ```
 
+
+协程可处于四种状态之一：暂停、运行、正常和死亡，suspended, running, normal and dead。我们可以使用函数 `coroutine.status`，检查协程的状态：
+
+
+```lua
+print(coroutine.status(co))     --> suspended
+```
+
+
+当我们创建出某个协程时，他是以暂停状态启动的；当我们创建某个协程时，他不会自动运行其主体。函数 `coroutine.resume` 会（重新）开始执行某个协程，将其状态从暂停状态，变为运行状态：
+
+
+```lua
+coroutine.resume(co)    --> hi
+```
+
+(如果在交互模式下运行这段代码，咱们可能需要在上一行结束时加上分号，以消除 `resume` 的结果显示）。在第一个示例中，协程主体简单地打印了 `hi` 并终止，使协程处于死亡状态：
+
+
+```lua
+print(coroutine.status(co))     --> dead
+```
+
+到目前为止，协程看上去还不过是调用函数的一种复杂方式。协程的真正威力源自函数 `yield`，他允许运行中的协程暂停自己的执行，以便稍后恢复。我们来看个简单的示例：
+
+
+```lua
+co = coroutine.create(function ()
+    for i =1, 10 do
+        print("co", i)
+        coroutine.yield()
+    end
+end)
+```
+
+现在，协程主体执行一个循环，打印一些数字，并在每次打印后避让，yielding。当我们恢复这个协程时，他会开始其执行，一直运行到第一个 `yield`：
+
+
+```lua
+coroutine.resume(co)    --> co      1
+```
+
+
+如果我们检查其状态，就会发现该协程已暂停，因此，其可被恢复：
+
+
+```lua
+print(coroutine.status(co))     --> suspended
+```
+
+
+从协程角度看，在他暂停时发生的所有活动，都发生在他对 `yield` 的调用中。当我们恢复协程时，对 `yield` 的此次调用最终会返回结果，而协程会继续执行，直到下一 `yield` 或其结束：
+
+
+```lua
+coroutine.resume(co)    --> co      2
+coroutine.resume(co)    --> co      3
+-- ...
+coroutine.resume(co)    --> co      10
+coroutine.resume(co)    -- 什么也不会打印
+```
 
 
