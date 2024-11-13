@@ -88,4 +88,95 @@ coroutine.resume(co)    --> co      10
 coroutine.resume(co)    -- 什么也不会打印
 ```
 
+在最后一次调用 `resume` 时，协程主体完成了循环并随后返回，没有打印任何内容。如果我们再次尝试恢复，`resume` 会返回 `false` 以及一条错误信息：
+
+```lua
+print(coroutine.resume(co))
+  --> false   cannot resume dead coroutine
+```
+
+
+请注意，与 `pcall` 一样，`resume` 也是在受保护模式下运行的。因此，如果在某个协程内出现任何错误，Lua 不会显示错误信息，而是将其返回给 `resume` 调用。
+
+当某个协程恢复了另一协程时，他就未被中止；毕竟，我们无法恢复他。不过，他也不是在运行状态，因为正在运行的协程是另一个协程。因此，其自身的状态，就是我们所说的 *正常* 状态。
+
+在 Lua 中，一项有用功能，就是一对恢复-退让， a pair resume-yield，可以交换数据。其中第一个 `resume` 没有对应的 `yield` 在等待，他会将额外参数，传递给协程的主函数：
+
+
+```lua
+co = coroutine.create(function (a, b, c)
+        print("co", a, b, c + 2)
+    end)
+coroutine.resume(co, 1, 2, 3)   --> co      1       2       5
+```
+
+调用 `coroutine.resume` 时，会返回传递给相应 `yield`，没有错误的 `true` 信号后的所有参数：
+
+
+```lua
+co = coroutine.create(function (a, b)
+        coroutine.yield(a + b, a - b)
+end)
+print(coroutine.resume(co, 20, 10))     --> true    30      10
+```
+
+与此对应，`coroutine.yield` 会返回传递给相应 `resume` 的任何额外参数：
+
+
+```lua
+co = coroutine.create (function (x)
+    print("co1", x)
+    print("co2", coroutine.yield())
+end)
+coroutine.resume(co, "hi")      --> co1     hi
+coroutine.resume(co, 4, 5)      --> co2     4       5
+```
+
+最后，当某个协程结束时，其主函数返回的任何值，都会进入相应的 `resume`：
+
+```lua
+co = coroutine.create(function ()
+    return 6, 7
+end)
+print(coroutine.resume(co))     --> true    6       7
+```
+
+我们很少在同一个协程中，使用所有这些设施，但他们都有各自用途。
+
+
+尽管人们对协程的总体概念已经有了很好理解，但细节却大相径庭。因此，对于那些已经对协程有所了解的人来说，在我们继续讨论之前，有必要澄清一下这些细节。Lua 提供了我们所说的 *非对称协程，asymmetric coroutines*。这意味着他有个用于暂停执行某个协程的函数，以及另一个用于恢复暂停协程的函数。其他一些语言，则提供的是 *对称协程，symmetric coroutine*，即只有一个可以将控制权从一个协程，转移到另一协程的函数。
+
+一些人把非对称协程，称为 *半协程，semi-coroutine*。不过，也有人用 *半协程，semi-coroutine* 来表示协程的一种受限实现，即只有在不调用任何函数时，也就是在控制栈中没有待处理调用时，协程才能暂停执行。换句话说，只有这种半协程的主体，才能产生避让，yield。(Python 中的 *生成器，generator*，就是半协程这种含义的一个例子。）
+
+
+与对称和非对协程之间的区别不同，协程和生成器（如 Python 中所示）之间的区别是很深的；生成器根本不够强大，无法实现我们用完整协程，可以编写的一些最有趣结构。Lua 提供了完整的非对称协程。喜欢对称协程的人，可以在 Lua 的非对称性设施上实现他们（参见 [练习 24.6](#exercise-24_6)）。
+
+
+## 谁是老大？
+
+**Who Is the Boss?**
+
+
+生产者-消费者问题，the producer-consumer problem，是协程最典型的例子之一。假设我们有个不断产生数值的函数（例如从文件中读取数值），和另一个不断消耗这些数值的函数（例如将数值写入另一文件）。这两个函数可以是这样的：
+
+
+```lua
+function producer ()
+    while true do
+        local x = io.read()     -- 产生新值
+        send(x)                 -- 将其发送给消费者
+    end
+end
+
+function consumer ()
+    while true do
+        local x = receive()     -- 从生产者接收值
+        io.write(x, "\n")       -- 消费该值
+    end
+end
+```
+
+(为简化这个例子，生产者和消费者都将永远运行。将二者改为在没有更多数据需要处理时停止运行并不难。）这里的问题，是如何匹配 `send` 和 `receive`。这是个 “谁拥有主循环” 问题的典型例子。生产者和消费者都是活动的，都有各自的主循环，并且都假定对方是个可调用服务。在这个特殊例子中，改变其中一个函数的结构是很容易的，可以取消其循环，使其成为一个被动代理，a passive agent。然而，在其他一些真实场景中，这种结构的改变，可能远非如此简单。
+
+
 
