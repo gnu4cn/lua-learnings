@@ -11,3 +11,14 @@ function consumer ()
         io.write(x, "\n")       -- 消费该值
     end
 end
+
+producer = coroutine.create(producer)
+
+function receive ()
+    local status, value = coroutine.resume(producer)
+    return value
+end
+
+function send (x)
+    coroutine.yield(x)
+end
