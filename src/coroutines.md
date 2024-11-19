@@ -205,3 +205,121 @@ producer = coroutine.create(producer)
 
 
 使用过滤器，我们就可以扩展这种设计，过滤器是位处生产者和消费者之间，对数据进行某种转换的一些任务。*过滤器，a filter* 同时既是消费者又是生产者，因此会恢复生产者以获取新值，并将转换后的值提供给消费者。举个简单的例子，我们可以在之前的代码中添加一个过滤器，在每一行的开头插入行号。代码见图 24.1 “带过滤器的生产者-消费者”。
+
+**图 24.1 带过滤器的生产者-消费者**
+
+
+```lua
+function receive (prod)
+    local status, value = coroutine.resume(prod)
+    return value
+end
+
+function send (x)
+    coroutine.yield(x)
+end
+
+function producer ()
+    return coroutine.create(function ()
+        while true do
+            local x = io.read()     -- 产生新值
+            send(x)
+        end
+    end)
+end
+
+
+function filter (prod)
+    return coroutine.create(function ()
+        for line = 1, math.huge do
+            local x = receive(prod)     -- 获取新值
+            x = string.format("%5d %s", line, x)
+            send(x)     -- 将其发送给消费者
+        end
+    end)
+end
+
+function consumer (prod)
+    while true do
+        local x = receive(prod)     -- 获取新值
+        io.write(x, "\n")           -- 消费新值
+    end
+end
+
+consumer(filter(producer()))
+```
+
+> 运行上面的程序如下所示。
+
+```console
+10
+    1 10
+test                                                                                                                                 2 test
+3.1416
+    3 3.1416
+20
+    4 20
+This is a test.
+    5 This is a test.
+
+    6
+<Ctrl + C> 退出
+```
+
+程序最后一行只是创建了其所需的组件，将他们连接起来，然后启动最终消费者。
+
+
+在看了前面的示例后，若咱们想到了 POSIX 管道，POSIX pipes，那么咱们并不孤单。毕竟，协程是种（非抢占式）多线程，non-preemptive multithreading。在管道下，各个任务在单独的进程中运行；而在协程下，每个任务在单独的协程中运行。在写入器（生产者）和读取器（消费者）之间，管道提供了个缓冲区，a buffer，因此他们的相对速度有一定自由度。在管道下这一点很重要，因为进程间切换的成本很高。而在运用协程时，任务间切换的成本要小得多（大致相当于函数调用），因此写入器和读取器可以齐头并进。
+
+
+## 作为迭代器的协程
+
+**Coroutines as Iterators**
+
+
+我们可以把循环迭代器，loop iterators，看作是生产者-消费者模式的一个特殊例子：迭代器产生由循环体消耗的项目。因此，使用协程编写迭代器，似乎很合适。事实上，协程为这项任务提供了强大工具。同样，其主要特点，是能将调用者和被调用者之间的关系，从内部转向外部。有了这一特点，我们就可以不必担心如何在连续调用之间保持状态下，编写出迭代器。
+
+为了说明这种用法，我们来编写一个遍历给定数组的所有排列的迭代器，an iterator to traverse all permutations of a given array。直接编写这样一个迭代器并不容易，但编写一个能生成所有这些排列的递归函数则并不难。这个想法很简单：依次将每个数组元素放在最后一个位置，然后递归生成剩余元素的所有排列。代码见图 24.2 “生成排列的函数”。
+
+**图 24.2 生成排列的函数**
+
+
+```lua
+function permgen (a, n)
+    n = n or #a         -- `n` 的默认值为 `a` 的大小
+    if n <= 1 then
+        printResult(a)
+    else
+        for i = 1, n do
+            
+            -- 将第 i 个元素置为最后一个
+            a[n], a[i] = a[i], a[n]
+
+            -- 生成全部其他元素的排列
+            permgen(a, n - 1)
+
+
+            -- 恢复第 i 个元素
+            a[n], a[i] = a[i], a[n]
+        end
+    end
+end
+```
+
+要让其工作起来，我们必须定义一个恰当的 `printResult` 函数，并使用适当参数调用 `permgen`：
+
+
+```lua
+function printResult (a)
+    for i = 1, #a do io.write(a[i], " ") end
+    io.write("\n")
+end
+
+permgen ({1, 2, 3, 4})
+    --> 2 3 4 1
+    --> 3 2 4 1
+    --> 3 4 2 1
+    --> ...
+    --> 2 1 3 4
+    --> 1 2 3 4
+```
