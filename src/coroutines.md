@@ -323,3 +323,63 @@ permgen ({1, 2, 3, 4})
     --> 2 1 3 4
     --> 1 2 3 4
 ```
+
+
+在生成器准备就绪后，将其转换为迭代器，便是项自动任务。首先，我们将 `printResult` 改为 `yield`：
+
+
+```lua
+function permgen (a, n)
+    n = n or #a         -- `n` 的默认值为 `a` 的大小
+    if n <= 1 then
+        coroutine.yield(a)
+    else
+        -- 照旧
+```
+
+然后，我们定义出一个，将该生成器安排在协程中运行，并创建出迭代器函数的工厂函数。其中的迭代器只需恢复协程，即可生成下一排列：
+
+
+```lua
+function permutations (a)
+    local co = coroutine.create(function () permgen(a) end)
+    return function ()      -- 迭代器
+        local code, res = coroutine.resume(co)
+        return res
+    end
+end
+```
+
+有了这种机制，用 `for` 语句遍历数组的所有排列方式，就变得轻而易举了：
+
+```lua
+for p in permutations{"a", "b", "c"} do
+    printResult(p)
+end
+    --> b c a
+    --> c b a
+    --> c a b
+    --> a c b
+    --> b a c
+    --> a b c
+```
+
+函数 `permutations` 用到 Lua 中的一种常见模式，即在函数中将对 `resume` 的调用，与其对应的协程打包在一起。这种模式非常常见，以至于 Lua 为此提供了一个特殊函数：`coroutine.wrap`。与 `create` 类似，`wrap` 也会创建一个新的协程。与 `create` 不同的是，`wrap` 不会返回协程本身；相反，他会返回一个函数，调用该函数后，协程就会恢复。与最初的 `resume` 不同，该函数的第一个结果不是返回错误代码，而是在出错时抛出错误。使用 `wrap`，我们可以如下编写 `permutations`：
+
+
+```lua
+function permutations (a)
+    return coroutine.wrap(function () permgen(a) end)
+end
+```
+
+通常，`coroutine.wrap` 比 `coroutine.create` 更简单好用。他给到我们的，正是我们在协程上所需的：一个恢复协程的函数。然而，他也不那么灵活。我们无法检查使用 `wrap` 创建出的协程状态。此外，我们也无法检查运行时错误。
+
+
+
+## 事件驱动的编程
+
+**Event-Driven Programming**
+
+
+

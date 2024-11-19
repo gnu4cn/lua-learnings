@@ -1,7 +1,7 @@
 function permgen (a, n)
     n = n or #a         -- `n` 的默认值为 `a` 的大小
     if n <= 1 then
-        printResult(a)
+        coroutine.yield(a)
     else
         for i = 1, n do
             
@@ -23,4 +23,12 @@ function printResult (a)
     io.write("\n")
 end
 
-permgen ({1, 2, 3, 4})
+-- permgen ({1, 2, 3, 4})
+
+function permutations (a)
+    return coroutine.wrap(function () permgen(a) end)
+end
+
+for p in permutations{"a", "b", "c"} do
+    printResult(p)
+end
