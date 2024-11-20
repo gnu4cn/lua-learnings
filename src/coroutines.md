@@ -382,4 +382,188 @@ end
 **Event-Driven Programming**
 
 
+乍一看也许并不明显，但传统的事件驱动型编程所产生的典型纠缠，是 “谁是老大” 问题的另一后果，the typical entanglement created by convientional event-driven programming is another cosequence of the who-is-the-boss problem。
+
+在典型事件驱动平台中，外部实体通过所谓的 *事件循环，event loop*（或 *运行循环，run loop*），向我们的程序生成事件。谁才是这里的老大就明确了，而我们的代码并非老大。我们的程序成了事件循环的仆从，这就使其成为，那些没有任何明显联系的单个事件处理器集合。
+
+
+为让内容更具体一些，我们假设有个类似 `libuv` 的异步 I/O 库。该库有与我们下面小例子有关的 4 个函数：
+
+
+```c
+lib.runloop();
+lib.readline(stream, callback);
+lib.writeline(stream, line, callback);
+lib.stop();
+```
+
+第一个函数运行将要处理传入事件，并调用相关回调的事件循环。典型的事件驱动程序，会初始化一些东西，然后调用这个函数，他将成为应用程序的主循环。第二个函数指示函数库，读取给定数据流中的一行，读取完成后以得到的结果，调用给定的回调函数。第三个函数与第二个函数类似，但用于写一行内容。最后一个函数中断事件循环，通常是为了结束程序。
+
+
+下图 24.3 “异步 I/O 库的丑陋实现” 展示了这样一个库的一种实现。
+
+
+```lua
+local cmdQueue = {}         -- 待处理操作队列
+
+local lib = {}
+
+function lib.readline (stream, callback)
+    local nextCmd = function ()
+        callback(stream:read())
+    end
+
+    table.insert(cmdQueue, nextCmd)
+end
+
+function lib.writeline ()
+    local nextCmd = function ()
+        callback(stream:write(line))
+    end
+
+    table.insert(cmdQueue, nextCmd)
+end
+
+function lib.stop ()
+    table.insert(cmdQueue, "stop")
+end
+
+function lib.runloop ()
+    while true do
+        local nextCmd = table.remove(cmdQueue, 1)
+
+        if nextCmd == "stop" then
+            break
+        else
+            nextCmd()       -- 执行下一操作
+        end
+    end
+end
+
+return lib
+```
+
+这是个非常丑陋的实现。他的 “事件队列”，实际上是个待执行操作的列表，一旦被执行（同步地！），就会产生事件。尽管这很难看，但他还是满足了前面的规范，因此我们可以在不需要真正异步库下，测试下面的一些示例。
+
+现在，我们来使用该库编写个将输入流中的所有行读入一个表，然后按相反顺序写入输出流的简单程序。若使用传统 I/O，程序会是下面这样。
+
+
+```lua
+local t = {}
+local inp = io.input()      -- 输入流
+local out = io.output()     -- 输出流
+
+
+for line in inp:lines() do
+    t[#t + 1] = line
+end
+
+for i = #t, 1, -1 do
+    out:write(t[i], "\n")
+end
+```
+
+
+> 运行该程序：
+
+
+```console
+This
+There
+That
+Those <Ctrl+D>
+Those
+That
+There
+This
+```
+
+> 其中 `<Ctrl+D>` 表示输入的结束，参考：[How to signal the end of stdin input](https://unix.stackexchange.com/a/16338/664372)
+
+
+现在，我们要在异步 I/O 库的基础上，以事件驱动的方式，in an event-driven style，重写该程序，结果如下图 24.4 所示：“以事件驱动方式反转文件”。
+
+
+
+**图 24.4 以事件驱动方式反转某个文件**
+
+
+```lua
+local lib = require "async-lib"
+
+local t = {}
+local inp = io.input()
+local out = io.output()
+local i
+
+
+-- 写-行 处理器
+local function putline ()
+    i = i - 1
+    if i == 0 then
+        lib.stop()      -- 没有更多行了？
+    else
+        lib.writeline(out, t[i] .. "\n", putline)
+    end
+end
+
+-- 读-行 处理器
+local function getline (line)
+    if line then                        -- 非 EOF？
+        t[#t + 1] = line                -- 保存行
+        lib.readline(inp, getline)      -- 读取下一行
+    else                                -- 文件结束处
+        i = #t + 1                      -- 准备写循环
+        putline()                       -- 进入写循环
+    end
+end
+
+lib.readline(inp, getline)              -- 请求读取首行
+lib.runloop()                           -- 运行主循环
+```
+
+
+事件驱动情形下，我们所有循环都消失了，因为主循环在库中。取而代之的是伪装成事件的递归调用。我们可以通过连续传递样式，使用闭包来改善这些情况，但我们仍旧无法编写自己的循环；我们必须通过递归，来重写他们。
+
+
+协程允许我们将循环与事件循环相协调，reconsile our loops with the event loop。关键思路在于，在每次请求库时，将主代码作为协程运行，把回调函数设置为恢复主代码运行的函数，随后避让。下图 24.5 “在异步库上运行同步代码”，就运用这一思想，实现了个在异步 I/O 库上，运行传统同步代码的库。
+
+
+**图 24.5 在异步库上运行同步代码**
+
+
+
+```lua
+local lib = require "async-lib"
+
+function run (code)
+    local co = coroutine.wrap(function ()
+        code()
+        lib.stop()      -- 在完成后结束事件循环
+    end)
+
+    co()                -- 启动协程
+    lib.runloop()       -- 启动事件循环
+end
+
+
+function putline (stream, line)
+    local co = coroutine.running()      -- 调用协程
+    local callback = (function () coroutine.resume(co) end)
+    lib.writeline(stream, line, callback)
+    coroutine.yield()
+end
+
+function getline (stream, line)
+    local co = coroutine.running        -- 调用协程
+    local callback = (function (l) coroutine.resume(co, l) end)
+    lib.readling(stream, callback)
+    local line = coroutine.yield()
+    return line
+end
+```
+
+顾名思义，其中的 `run` 函数会运行其作为参数取得的同步代码。他首先创建出一个用于运行给定代码的协程，并在运行结束后完成事件循环。随后，他恢复了该协程（该协程将在第一次 I/O 调用时避让），然后进入事件循环。
+
+
 
