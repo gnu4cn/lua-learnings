@@ -529,7 +529,7 @@ lib.runloop()                           -- 运行主循环
 协程允许我们将循环与事件循环相协调，reconsile our loops with the event loop。关键思路在于，在每次请求库时，将主代码作为协程运行，把回调函数设置为恢复主代码运行的函数，随后避让。下图 24.5 “在异步库上运行同步代码”，就运用这一思想，实现了个在异步 I/O 库上，运行传统同步代码的库。
 
 
-**图 24.5 在异步库上运行同步代码**
+<a name="f_24.5"></a>**图 24.5 在异步库上运行同步代码**
 
 
 
@@ -555,9 +555,9 @@ function putline (stream, line)
 end
 
 function getline (stream, line)
-    local co = coroutine.running        -- 调用协程
+    local co = coroutine.running()        -- 调用协程
     local callback = (function (l) coroutine.resume(co, l) end)
-    lib.readling(stream, callback)
+    lib.readline(stream, callback)
     local line = coroutine.yield()
     return line
 end
@@ -566,4 +566,78 @@ end
 顾名思义，其中的 `run` 函数会运行其作为参数取得的同步代码。他首先创建出一个用于运行给定代码的协程，并在运行结束后完成事件循环。随后，他恢复了该协程（该协程将在第一次 I/O 调用时避让），然后进入事件循环。
 
 
+函数 `getline` 和 `putline` 模拟了同步 I/O。如前所述，他们都调用了个适当的异步函数，作为传递的恢复所调用协程的回调函数。（请留意其中使用 `coroutine.running` 函数访问所调用协程的用法。）在此之后，协程就避让了，控制权回到事件循环。一旦操作完成，事件循环就会调用回调，恢复触发操作的协程。
 
+
+有了这个库，我们就可以在异步库上，运行同步代码了。举例来说，以下代码片段再次实现了我们的翻转行示例：
+
+
+```lua
+run(function ()
+    local t = {}
+    local inp = io.input()
+    local out = io.output()
+
+    while true do
+        local line = getline(inp)
+        if not line then break end
+        t[#t + 1] = line
+    end
+
+    for i = #t, 1, -1 do
+        putline(out, t[i] .. "\n")
+    end
+end)
+```
+
+
+> **译注**：与上个程序一样，运行该代码时在输入若干行后按下 `Ctrl+D`，会报出如下错误。
+
+
+```console
+$ lua running_sync_code_on_top_of_async_lib.lua
+This
+There
+That
+Those
+lua: ./async-lib.lua:15: attempt to index a nil value (global 'stream')
+stack traceback:
+        ./async-lib.lua:15: in local 'nextCmd'
+        ./async-lib.lua:32: in function 'async-lib.runloop'
+        running_sync_code_on_top_of_async_lib.lua:10: in function 'run'
+        running_sync_code_on_top_of_async_lib.lua:29: in main chunk
+        [C]: in ?
+```
+
+> 至于为何会这样，以及在异步下如何结束输入，需要进一步探讨。
+
+
+除开将 `get/putline` 用于 I/O，并一个 `run` 调用内部运行外，该代码与最初的同步代码相同。其同步结构之下，他实际上是以事件驱动的方式运行的，同时与以更典型的事件驱动风格，编写的程序其他部分完全兼容。
+
+
+## 练习
+
+
+练习 24.1：请使用 *生产者驱动* 设计，a *producer-driven* design，重写 [“谁是老大” 小节](#谁是老大) 中的生产者-消费者示例，其中消费者为协程，生产者为主线程；
+
+
+练习 24.2： [练习 6.5](functions.md#exercise_6.5) 曾要求咱们编写个打印出给定数组中，所有元素组合的函数。请使用协程，将此函数转换为一个组合生成器，并可像下面样使用：
+
+
+```lua
+    for c in combinations({"a", "b", "c"}, 2) do
+        printResult(c)
+    end
+```
+
+
+练习 24.3：在 [图 24.5 “在异步库上运行同步代码”](#f_24.5) 中，函数 `getline` 和 `putline` 在每次调用时，都会创建一个新闭包。请使用记忆法，来避免这种浪费；
+
+
+练习 24.4： 请为这个基于协程的库，编写个行迭代器（[图 24.5，“在异步库上运行同步代码”](#f_24.5)），以便使用 `for` 循环读取文件；
+
+
+练习 24.5：咱们可以使用基于协程的库（[图 24.5，“在异步库上运行同步代码”](#f_24.5)），并发运行多个线程吗？需要做些什么改动呢？
+
+
+练习 24.6：请以 Lua 实现一个 `transfer` 函数。若咱们将恢复-避让，`resume-yield`，视为类似于调用-返回，`call-return`，那么一次转移，就像是个 `goto`：他会暂停运行中的协程，并恢复作为参数给定的其他协程。(提示：请使用某种调度，a kind of dispatch，来控制咱们的协程。然后，某次转移避让于调度，发出指示下一协程运行的信0号，而调度将恢复下一协程运行。use a kind of dispatch to control your coroutines. Then, a transfer would yield to the dispatch signaling the next coroutine to run, and the dispatch would resume that next coroutine.）
