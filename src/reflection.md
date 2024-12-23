@@ -249,3 +249,28 @@ Lua 会以一个描述产生调用事件的字符串参数，调用所有钩子�
 ```lua
 debug.sethook(print, "l")
 ```
+
+这个调用只是将 `print` 安装为钩子函数，并指示 Lua 仅在行事件时调用他。而一种更复杂的跟踪器，则可以使用 `getinfo` 将当前文件名添加到跟踪器中：
+
+
+```lua
+{{#include ../scripts/elaborated_tracer.lua}}
+```
+
+与钩子一起使用的一个有用函数，便是 `debug.debug`。这个简单的函数为我们提供了一个可执行任意 Lua 命令的提示符。他大致相当于以下代码：
+
+
+```lua
+```
+
+当用户输入 “命令” `cont` 时，该函数就会返回。这种标准实现非常简单，且会在全局环境中，所调试代码作用域外部运行命令。[练习 25.4](#exercise_25.4) 讨论了一种更好实现。
+
+
+## 分析
+
+**Profiles**
+
+
+除调试外，反射的另一个常见应用是分析，profiling，即分析程序对资源的使用情况。对于时序分析，timing profile，最好使用 C 接口：每个钩子一个 Lua 调用的开销太大，从而可能会使任何的测量都无效。不过，对于计数分析，counting profiles，Lua 代码的表现还算不错。在本节中，我们将开发一个列出程序运行过程中，每个函数被调用次数的初级分析器，a rudimentary profiler that lists the number of times each function in a program is called during a run。
+
+
