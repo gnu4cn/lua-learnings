@@ -105,3 +105,36 @@ stack traceback:
 ## 访问本地变量
 
 **Accessing local variables**
+
+
+使用 `debug.getlocal`，我就就可以检查任何活动函数的局部变量。该函数有两个参数：所查询函数的堆栈级别，以及变量索引。他会返回两个值：变量名与其当前值。如果变量索引大于了活动变量数目，`getlocal` 将返回 `nil`。如果堆栈级别无效，他会抛出一个错误。(我们可以使用 `debug.getinfo`，检查堆栈级别的有效性）。
+
+Lua 按照局部变量在函数中出现的顺序对其编号，只计算那些在函数当前作用域中活动的变量。例如，请看下面的函数：
+
+
+```lua
+function foo (a, b)
+    local x
+    do local c = a - b end
+    local a = 1
+    while true do
+        local name, value = debug.getlocal(1, a)
+        if not name then break end
+        print(name, value)
+        a = a + 1
+    end
+end
+```
+
+调用 `foo(10, 20)` 将打印如下输出：
+
+
+```console
+a       10
+b       20
+x       nil
+a       4
+```
+
+
+
