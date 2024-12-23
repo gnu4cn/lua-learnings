@@ -159,7 +159,9 @@ a       4
 
 <a name="f-25.1"></a> **获取某个变量的值**
 
+```lua
 {{#include ../scripts/getting_variable_value.lua}}
+```
 
 
 其可以这样使用：
