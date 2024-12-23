@@ -20,6 +20,7 @@ function getvarvalue (name, level, isenv)
     local func = debug.getinfo(level, "f").func
     for i = 1, math.huge do
         local n, v = debug.getupvalue(func, i)
+        print(n, v)
         if not n then break end
         if n == name then return "upvalue", v end
     end
