@@ -6,3 +6,6 @@ end)
 
 coroutine.resume(co)
 print(debug.traceback(co))
+print(coroutine.resume(co))
+print(debug.traceback(co))
+print(debug.getlocal(co, 1, 1))

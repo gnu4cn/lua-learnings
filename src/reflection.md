@@ -43,7 +43,7 @@
 
 - `name`：该字段给到函数的合理名称，例如存储该函数的全局变量名称；
 
-- `namewhat`：该字段给出前一字段的含义。该字段可以是 `global`、`local`、`method`、`field` 或 ``（空字符串）。空字符串表示 Lua 没有找到函数名称；
+- `namewhat`：该字段给出前一字段的含义。该字段可以是 `global`、`local`、`method`、`field` 或 `''`（空字符串）。空字符串表示 Lua 没有找到函数名称；
 
 - `nups`：这是该函数的上值个数，the number of upvalues；
 
@@ -102,7 +102,7 @@ stack traceback:
 ```
 
 
-## 访问本地变量
+## 访问本地变量 - `debug.getlocal`
 
 **Accessing local variables**
 
@@ -144,7 +144,7 @@ a       4
 使用 `debug.setlocal`，我们也可以更改局部变量的值。与 `getlocal` 类似，他的前两个参数，分别是堆栈级别和变量索引。第三个参数是变量的新值。他会返回变量名，或在变量索引超出作用域时返回 `nil`。
 
 
-## 访问非本地变量
+## 访问非本地变量 - `debug.getupvalue`
 
 **Accessing non-local variables**
 
@@ -190,13 +190,38 @@ a       4
 {{#include ../scripts/coroutine_inspection.lua}}
 ```
 
-对 `traceback` 的调用将在协程 co 上运行，结果类似于下面这样：
+对 `traceback` 的调用将作用于协程 `co` 上，结果类似于下面这样：
 
 ```console
 > lua scripts/coroutine_inspection.lua
 stack traceback:
         [C]: in function 'coroutine.yield'
         scripts/coroutine_inspection.lua:3: in function <scripts/coroutine_inspection.lua:1>
+```
+
+跟踪不会经过调用 `resume`，因为其中的协程和主程序，运行在不同栈中。
+
+
+当某个协程抛出错误时，他不会释放其堆栈，unwind its stack。这意味着我们可以在该报错后对其加以检查。继续咱们的示例，如果我们再次恢复该协程，他就会遭遇那个报错：
+
+
+```lua
+print(coroutine.resume(co))         --> false   scripts/coroutine_inspection.lua:4: some error
+```
+
+现在，若我们打印其回溯，就会得到如下结果：
+
+
+```console
+stack traceback:
+        [C]: in function 'error'
+        scripts/coroutine_inspection.lua:4: in function <scripts/coroutine_inspection.lua:1>
+```
+
+我们还可以检查协程中的局部变量，即使在出错后：
+
+```lua
+print(debug.getlocal(co, 1, 1))         --> x       10
 ```
 
 
