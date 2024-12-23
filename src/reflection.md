@@ -67,4 +67,41 @@
 | 选项 | 意义 |
 | :-: | :- |
 | `n` | 选择 `name` 与 `namewhat` |
+| `f` | 选择 `func` |
+| `S` | 选择 `source`、`short_src`、`what`、`linedefined` 与 `lastlinedefined` |
+| `l` | 选择 `currentline` |
+| `L` | 选择 `activelines` |
+| `u` | 选择 `nups`、`nparams` 与 `isvararg` |
 
+
+以下函数通过打印活动堆栈的原始回溯，说明了 `debug.getinfo` 用法：
+
+
+```lua
+function traceback ()
+    for level = 1, math.huge do
+        local info = debug.getinfo(level, "Sl")
+        if not info then break end
+        if info.what == "C" then    -- 是个 C 函数？
+            print(string.format("%d\tC 函数", level))
+        else    -- 是个 Lua 函数
+            print(string.format("%d\t[%s]:%d", level, info.short_src, info.currentline))
+        end
+    end
+end
+```
+
+要改进这个函数并不难，只要包含更多 `getinfo` 中的数据即可。实际上，调试库就提供了这样一个改进版本，即函数 `traceback`。与我们的版本不同，`debug.traceback` 并不打印结果，而是返回一个包含回溯信息的字符串（可能很长）：
+
+
+```console
+> print(debug.traceback())
+stack traceback:
+        stdin:1: in main chunk
+        [C]: in ?
+```
+
+
+## 访问本地变量
+
+**Accessing local variables**
