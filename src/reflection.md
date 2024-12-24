@@ -261,6 +261,7 @@ debug.sethook(print, "l")
 
 
 ```lua
+{{#include ../scripts/debug_impl.lua}}
 ```
 
 当用户输入 “命令” `cont` 时，该函数就会返回。这种标准实现非常简单，且会在全局环境中，所调试代码作用域外部运行命令。[练习 25.4](#exercise_25.4) 讨论了一种更好实现。
@@ -277,8 +278,76 @@ debug.sethook(print, "l")
 
 
 ```lua
+{{#include ../scripts/profiler.lua::2}}
 ```
 
 我们可以在分析后获取到函数名，但请记住，如果我们在函数处于活动状态时就获取函数名，效果会更好，因为这时 Lua 可以查看调用函数的代码，从而找到函数名。
 
-现在我们定义出钩子函数。他的任务是获取被调用的函数、递增相应的计数器并收集函数名。代码如图 25.2 所示：“用于计算调用次数的钩子”。
+现在我们定义出钩子函数。他的任务是获取被调用的函数、递增相应的计数器并收集函数名。代码如图 25.2 所示：“用于统计调用次数的钩子”。
+
+<a name="f-25.2"></a>**图 25.2，用于统计调用次数的钩子**
+
+
+```lua
+{{#include ../scripts/profiler.lua:4:13}}
+```
+
+下一步就要使用该钩子运行程序。我们假设要分析的程序在某个文件中，用户会将该文件名，作为参数提供给这个分析器，就像这样：
+
+
+```console
+> lua profiler.lua main-prog
+```
+
+在这种方案下，分析器可以获取 `arg[1]` 中的文件名，打开钩子，然后运行文件:
+
+```lua
+{{#include ../scripts/profiler.lua:15:18}}
+```
+
+最后一步是显示结果。图 25.3 “获取函数名称” 中的函数 `getname`，会产生出函数名称。
+
+<a name="f-25.3"></a> **图 25.3，获取函数名字**
+
+```lua
+{{#include ../scripts/profiler.lua:20:32}}
+```
+
+由于 Lua 中的函数名非常不确定，因此我们为每个函数添加了其位置，以 `file:line` 对的形式给出。如果某个函数没有名称，我们就只使用他的位置。对于 C 函数，我们只使用其名称（因为他没有位置）。这个定义完成后，我们就要打印出每个函数与其计数器：
+
+```lua
+{{#include ../scripts/profiler.lua:34:}}
+```
+
+如果我们将咱们的分析器，应用于[第 19 章 “插曲：马可夫链算法“](markov_chain_algorithm.md) 中开发的示例，我们会得到如下结果：
+
+
+```console
+[./markov_chain.lua]: 18 (allwords)     1
+require 1
+nil     1
+sethook 1
+[./markov_chain.lua]: 3 (prefix)        729
+write   31
+random  30
+[./markov_chain.lua]: 9 (insert)        699
+[./markov_chain.lua]: 21 (for iterator) 699
+read    38
+[markov.lua]: 0 1
+match   735
+[./markov_chain.lua]: 0 1
+input   1
+nil     1
+```
+
+这一结果意味着，定义在 `markov_chain.lua` 中第 21 行的匿名函数（即 `allwords` 内部定义的迭代器函数）被调用了 699 次，`write` (`io.write`) 被调用了 31 次，以此类推。
+
+
+> *附*：`markov_chain.lua` 源码：
+
+
+```lua
+{{#include ../scripts/markov_chain.lua}}
+```
+
+我们还可以对这个分析器进行一些改进，例如对输出进行排序、打印更好的函数名以及美化输出格式。不过，这个基本的分析器已经非常有用了。

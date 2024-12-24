@@ -2,7 +2,7 @@
 require "markov_chain"
 io.input("article")
 
-local MAXGEN = 200
+local MAXGEN = 30
 local NOWORD = "\n"
 
 -- 构建出表
@@ -24,3 +24,5 @@ for i = 1, MAXGEN do
     io.write(nextword, " ")
     w1 = w2; w2 = nextword
 end
+
+io.write("\n")
