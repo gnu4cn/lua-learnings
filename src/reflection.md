@@ -382,6 +382,8 @@ for i = 1, 36 do s = s .. s end
 
 如图 25.5 “控制内存使用” 所示，一种改进方法是，在 `step` 函数中，检查并限制内存使用。
 
+
+<a name="f-25.5"></a> **控制内存使用**
 ```lua
 {{#include ../scripts/improved_sandbox.lua:3:22}}
 
