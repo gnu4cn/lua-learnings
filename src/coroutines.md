@@ -641,3 +641,8 @@ stack traceback:
 
 
 练习 24.6：请以 Lua 实现一个 `transfer` 函数。若咱们将恢复-避让，`resume-yield`，视为类似于调用-返回，`call-return`，那么一次转移，就像是个 `goto`：他会暂停运行中的协程，并恢复作为参数给定的其他协程。(提示：请使用某种调度，a kind of dispatch，来控制咱们的协程。然后，某次转移避让于调度，发出指示下一协程运行的信0号，而调度将恢复下一协程运行。use a kind of dispatch to control your coroutines. Then, a transfer would yield to the dispatch signaling the next coroutine to run, and the dispatch would resume that next coroutine.）
+
+
+（End）
+
+

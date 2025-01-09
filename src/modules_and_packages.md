@@ -389,3 +389,8 @@ C 语言中的名字，不能包含点，因此子模组 `a.b` 的 C 库，就�
 ```
 
 （提示：要使用 `package.searchpath` 找到某个合适的文件，然后首先以 `loadfile`，然后再以 `package.loadlib`，分别尝试加载这个文件。）
+
+
+（End）
+
+

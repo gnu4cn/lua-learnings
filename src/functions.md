@@ -597,3 +597,8 @@ return x[i].foo(x[j] + a*b, i + j)
 练习6.6：有时，具有正确尾部调用的语言，被称为 *正确尾部递归，properly tail recursive*，并认为该属性仅当我们具有递归调用，才相关。 （如果没有递归调用，程序的最大调用深度，将是静态固定的。）
 
 请证明这个论点，在像 Lua 这样的动态语言中不成立：编写一个程序，执行无递归的无界调用链，performs an unbounded call chain without recurion。 （提示：请参阅名为 [“编译”](compilation_execution_and_errors.md#编译) 的小节。）
+
+
+（End）
+
+
