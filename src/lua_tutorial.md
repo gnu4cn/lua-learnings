@@ -5,6 +5,13 @@
 
 因为在 [Slurm 集群负载调度器](https://slurm.schedmd.com/) 部署中，会用到用 Lua 实现的 [Lmod](https://github.com/TACC/Lmod) 这个环境模块系统，故有必要了解 Lua 这门编程语言。
 
+**相关资源**：
+
+- [ZeroBrane Studio](https://studio.zerobrane.com/) 是款轻量级的 Lua 集成开发环境 IDE，支持Lua 5.1、Lua 5.2、Lua 5.3、Lua 5.4、LuaJIT 及其他 Lua 引擎的代码自动补全、语法高亮、实时编码、代码分析与调试等。其代码位于 `/usr/share/zbstudio` 目录下，需要修改该目录权限为 `0755`。
+
+- [williamwilling/luagui](https://github.com/williamwilling/luagui) 是个用 Lua 创建图形用户界面的库，主要面向没有经验的程序员。该库的开发目标：易于使用；使用 Lua 的通用约定。(不应该让人感觉像是对 C++ 库的封装）。
+
+
 
 ## 前言
 
