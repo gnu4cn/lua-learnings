@@ -1,7 +1,6 @@
 function getvarvalue (name, level, isenv)
     local value
     local found = false
-
     level = (level or 1) + 1
 
     -- 尝试本地变量
@@ -17,7 +16,7 @@ function getvarvalue (name, level, isenv)
     if found then return "local", value end
 
     -- 尝试非本地变量
-    local func = debug.getinfo(level, "f").func
+    local func = debug.getinfo(level, "fn").func
     for i = 1, math.huge do
         local n, v = debug.getupvalue(func, i)
         if not n then break end
@@ -34,3 +33,13 @@ function getvarvalue (name, level, isenv)
         return "noenv"
     end
 end
+
+
+b = 5;
+function test_upvalue ()
+    local a = 4;
+    print(getvarvalue("a"))
+    print(getvarvalue("b"))
+end
+
+test_upvalue()
