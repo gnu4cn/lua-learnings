@@ -33,13 +33,3 @@ function getvarvalue (name, level, isenv)
         return "noenv"
     end
 end
-
-
-b = 5;
-function test_upvalue ()
-    local a = 4;
-    print(getvarvalue("a"))
-    print(getvarvalue("b"))
-end
-
-test_upvalue()

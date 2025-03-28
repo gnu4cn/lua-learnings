@@ -6,3 +6,5 @@ function debug1 ()
         assert(load(line))()
     end
 end
+
+debug1()

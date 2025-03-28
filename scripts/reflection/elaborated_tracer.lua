@@ -1,5 +1,7 @@
-function trace (event, line)
-    local s = debug.getinfo(2).short_src
+local debug = require("debug")
+
+local function trace (event, line)
+    local s = debug.getinfo(2, "S").short_src
     print(s .. ":" .. line)
 end
 

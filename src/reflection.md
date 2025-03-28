@@ -196,6 +196,8 @@ a       4
 > a = "xx"; print(getvarvalue("a"))         --> global  xx
 ```
 
+> **译注**：进一步检查发现，这个 `getvarvalue` 函数似乎并不能如预期那样，访问到非本地变量。
+
 参数 `level` 告诉该函数应查看堆栈上的何处；`1`（默认值）表示直接调用者。代码中的加一校正了堆栈级别，以包括对 `getvarvalue` 本身的调用。我(作者)稍后将解释参数 `isenv`。
 
 该函数首先会查找局部变量。如果有多个给定名字的局部变量，则其必须获取索引最高的那个；因此，他必须始终遍历整个循环。如果他找不到任何有着该名字的局部变量，随后就会尝试非局部变量。为此，他使用 `debug.getinfo`，获取调用闭包，然后遍历其非局部变量。最后，若他找不到有着该名字的非局部变量，则他会查找全局变量：其会递归调用自身，以访问正确的 `_ENV` 变量，然后在该环境中查找那个名字。
@@ -207,14 +209,14 @@ a       4
 
 **Accessing other coroutines**
 
-调试库中的所有自省函数，都接受一个可选的例程作为其第一个参数，这样我们就可以从外部检查例程。例如，请看下一示例：
+调试库中的所有自省函数，都接受一个可选的协程作为其第一个参数，这样我们就可以从外部检查该协程。例如，请看下一示例：
 
 
 ```lua
-{{#include ../scripts/coroutine_inspection.lua}}
+{{#include ../scripts/reflection/coroutine_inspection.lua}}
 ```
 
-对 `traceback` 的调用将作用于协程 `co` 上，结果类似于下面这样：
+其中到 `traceback` 的调用，将作用于协程 `co` 上，结果类似于下面这样：
 
 ```console
 > lua scripts/coroutine_inspection.lua
@@ -223,10 +225,10 @@ stack traceback:
         scripts/coroutine_inspection.lua:3: in function <scripts/coroutine_inspection.lua:1>
 ```
 
-跟踪不会经过调用 `resume`，因为其中的协程和主程序，运行在不同栈中。
+栈追踪不会经过调用 `resume`，因为协程和主程序运行在不同栈上。
 
 
-当某个协程抛出错误时，他不会释放其堆栈，unwind its stack。这意味着我们可以在该报错后对其加以检查。继续咱们的示例，如果我们再次恢复该协程，他就会遭遇那个报错：
+当某个协程抛出错误时，他不会释放其堆栈，unwind its stack。这意味着我们可以在该报错后对其加以检查。继续咱们的示例，若我们再次恢复该协程，他就会遇到那个报错：
 
 
 ```lua
@@ -242,7 +244,7 @@ stack traceback:
         scripts/coroutine_inspection.lua:4: in function <scripts/coroutine_inspection.lua:1>
 ```
 
-我们还可以检查协程中的局部变量，即使在出错后：
+我们还可以检查协程中的局部变量，即使在报错后：
 
 ```lua
 print(debug.getlocal(co, 1, 1))         --> x       10
@@ -252,43 +254,47 @@ print(debug.getlocal(co, 1, 1))         --> x       10
 
 **Hooks**
 
-调试库的钩子机制，允许我们注册一个函数，以便在程序运行过程中发生特定事件时调用。有四种事件可以触发钩子：
+调试库的钩子机制，允许我们注册一个在程序运行过程中，发生一些特定事件时调用的函数。有四种可以触发钩子的事件：
 
-- Lua 历次调用某个函数时发生的 *调用，call* 事件；
+- 于 Lua 调用某个函数时，发生的 `call` 事件；
+- 于函数返回值时，发生的 `return` 事件；
+- 于 Lua 开始执行某个新代码行时，发生的 `line` 事件；
+- 在给定数量的指令后，发生的 `count` 事件。（这里的 “指令” 指的是内部操作码，internal opcodes，我们在 [“预编译代码” 小节](cee.md#预编译的代码) 中简要介绍过。）
 
-- 每次某个函数返回值时发生的 *返回，return* 事件；
+Lua 会以一个描述产生该钩子调用事件的字符串参数，调用所有钩子： `call`（或 `tail call`）、`return`、`line` 或 `count`。对于行事件，他还会传递第二个参数，即新行的编号。要得到某个钩子内部的更多信息，我们必须调用 `debug.getinfo`。
 
-- Lua 开始执行某个新代码行时发生的 *行，line* 事件；
+要注册一个钩子，我们以两到三个参数，调用 `debug.sethook`：
 
-- 指定数目指令后发生的 *计数，count* 事件。（这里的“指令” 指的是内部操作码，internal opcodes，我们在[“预编译代码” 小节](cee.md#预编译的代码) 中简要介绍过。））
-
-Lua 会以一个描述产生调用事件的字符串参数，调用所有钩子： `call`（或 `tail call`）、`return`、`line` 或 `count`。对于行事件，他还会传递第二个参数，即新行的编号。要获取某个钩子内部的更多信息，我们必须调用 `debug.getinfo`。
-
-要注册一个钩子，我们需要调用 `debug.sethook`，其中包含两或三个参数：第一个参数是钩子函数；第二个参数是掩码字符串，a mask string，描述我们要监控的事件；第三个参数可选，是个数字，描述我们希望以何种频率，获取计数事件。要监控调用、返回和行事件，我们就要在掩码字符串中，添加他们的首字母（`c`、`r` 或 `l`）。要监控计数事件，我们只需提供一个计数器作为第三个参数。要关闭钩子，我们可以调用不带参数的 `sethook`。
+- 第一个参数是钩子函数；
+- 第二个参数是描述我们要监控事件的掩码字符串，a mask string；
+- 第三个参数是个可选的数字，描述我们希望以何种频率，获取计数事件。
 
 
-举个简单的例子，以下代码会安装一个打印解释器执行的每一行的原始跟踪器：
+要监控 `call`、`return` 及 `line` 事件，我们就要把他们的首字母（`c`、`r` 或 `l`），添加到掩码字符串中。要监控计数事件，我们只需提供一个计数器作为第三个参数。要关闭这些钩子，我们就要不带参数调用 `sethook`。
+
+
+举个简单的例子，下面的代码会安装一个原始追踪器，他会打印出解释器执行的每一行：
 
 
 ```lua
 debug.sethook(print, "l")
 ```
 
-这个调用只是将 `print` 安装为钩子函数，并指示 Lua 仅在行事件时调用他。而一种更复杂的跟踪器，则可以使用 `getinfo` 将当前文件名添加到跟踪器中：
+此调用只是将 `print` 安装为钩子函数，并指示 Lua 仅在行事件时调用他。更复杂的跟踪器则可使用 `getinfo`，将当前文件的名字，添加到行的追踪：
 
 
 ```lua
-{{#include ../scripts/elaborated_tracer.lua}}
+{{#include ../scripts/reflection/elaborated_tracer.lua}}
 ```
 
-与钩子一起使用的一个有用函数，便是 `debug.debug`。这个简单的函数为我们提供了一个可执行任意 Lua 命令的提示符。他大致相当于以下代码：
+与钩子一起使用的一个有用函数是 `debug.debug`。这个简单的函数，给到我们一个执行任意 Lua 命令的提示符。他大致相当于以下代码：
 
 
 ```lua
-{{#include ../scripts/debug_impl.lua}}
+{{#include ../scripts/reflection/debug_impl.lua}}
 ```
 
-当用户输入 “命令” `cont` 时，该函数就会返回。这种标准实现非常简单，且会在全局环境中，所调试代码作用域外部运行命令。[练习 25.4](#exercise_25.4) 讨论了一种更好实现。
+当用户输入 “命令” `cont` 时，该函数就会返回。标准实现非常简单，且会在全局环境中，所调试代码作用域外部运行命令。[练习 25.4](#exercise_25.4) 讨论了一种更好的实现。
 
 
 ## 分析
@@ -296,40 +302,46 @@ debug.sethook(print, "l")
 **Profiles**
 
 
-除调试外，反射的另一个常见应用是分析，profiling，即分析程序对资源的使用情况。对于时序分析，timing profile，最好使用 C 接口：每个钩子一个 Lua 调用的开销太大，从而可能会使任何的测量都无效。不过，对于计数分析，counting profiles，Lua 代码的表现还算不错。在本节中，我们将开发一个列出程序运行过程中，每个函数被调用次数的初级分析器，a rudimentary profiler that lists the number of times each function in a program is called during a run。
+除调试外，反射机制的另一常见应用，便是分析，profiling，即分析程序在资源使用方面的行为。对于时序分析，timing profile，最好使用 C 接口：每个钩子一次 Lua 调用的开销太大，可能会使任何测量都无效。不过，对于计数的分析，counting profiles，Lua 代码的表现还算不错。在本节中，我们将开发一个列出某次运行过程中，各个函数调用次数的初级分析器，a rudimentary profiler that lists the number of times each function in a program is called during a run。
 
-我们程序的主要数据结构，是两个表：一个将函数映射到其调用计数器，另一个将函数映射到其名称。两个表的索引，都是函数本身。
+咱们的程序主要数据结构是两个表：
+
+- 一个将函数映射到其调用计数器；
+- 另一个将函数映射到其名字。
+
+
+两个表的索引，都是函数本身。
 
 
 ```lua
-{{#include ../scripts/profiler.lua::2}}
+{{#include ../scripts/reflection/profiler.lua::2}}
 ```
 
-我们可以在分析后获取到函数名，但请记住，如果我们在函数处于活动状态时就获取函数名，效果会更好，因为这时 Lua 可以查看调用函数的代码，从而找到函数名。
+我们可在分析后获取函数名，但请记住，如果我们在某个函数处于活动状态时就获取其函数名，效果会更好，因为这样 Lua 就可以查看调用该函数的代码，以找到其名字。
 
-现在我们定义出钩子函数。他的任务是获取被调用的函数、递增相应的计数器并收集函数名。代码如图 25.2 所示：“用于统计调用次数的钩子”。
+现在我们定义出钩子函数。他的任务是获取被调用的函数、递增相应的计数器并收集函数名字。代码位于图 25.2：“用于统计调用次数的钩子”。
 
 <a name="f-25.2"></a>**图 25.2，用于统计调用次数的钩子**
 
 
 ```lua
-{{#include ../scripts/profiler.lua:4:13}}
+{{#include ../scripts/reflection/profiler.lua:4:13}}
 ```
 
-下一步就要使用该钩子运行程序。我们假设要分析的程序在某个文件中，用户会将该文件名，作为参数提供给这个分析器，就像这样：
+下一步是使用该钩子运行程序。我们假设打算分析的程序在某个文件中，用户将该文件名作为参数，提供给这个分析器，就像这样：
 
 
 ```console
 > lua profiler.lua main-prog
 ```
 
-在这种方案下，分析器可以获取 `arg[1]` 中的文件名，打开钩子，然后运行文件:
+在这种方案下，分析器可以获取 `arg[1]` 中的文件名，打开钩子并运行该文件:
 
 ```lua
 {{#include ../scripts/profiler.lua:15:18}}
 ```
 
-最后一步是显示结果。图 25.3 “获取函数名称” 中的函数 `getname`，会产生出函数名称。
+最后一步是显示结果。图 25.3 “获取函数名称” 中的函数 `getname`，会产生某个函数的名字。
 
 <a name="f-25.3"></a> **图 25.3，获取函数名字**
 
@@ -337,16 +349,18 @@ debug.sethook(print, "l")
 {{#include ../scripts/profiler.lua:20:32}}
 ```
 
-由于 Lua 中的函数名非常不确定，因此我们为每个函数添加了其位置，以 `file:line` 对的形式给出。如果某个函数没有名称，我们就只使用他的位置。对于 C 函数，我们只使用其名称（因为他没有位置）。这个定义完成后，我们就要打印出每个函数与其计数器：
+由于 Lua 中函数的名字非常不确定，因此我们给各个函数添加了位置，以 `file:line` 对的形式给出。若某个函数没有名字，我们就只使用其位置。对于 C 函数，我们只使用其名字（因为他没有位置）。该定义之后，我们就要打印各个函数及其计数器：
 
 ```lua
 {{#include ../scripts/profiler.lua:34:}}
 ```
 
-如果我们将咱们的分析器，应用于[第 19 章 “插曲：马可夫链算法“](markov_chain_algorithm.md) 中开发的示例，我们会得到如下结果：
+若咱们将咱们的分析器，应用到 [第 19 章 “插曲：马可夫链算法“](markov_chain_algorithm.md) 中开发的 Markov 示例，咱们会得到如下结果：
 
 
 ```console
+$ lua reflection/profiler.lua markov.lua
+Biden administration has received stark warnings from American diplomats of growing fury against US in Arab world have made clear their deep anger at the humanitarian crisis in the Arab
 [./markov_chain.lua]: 18 (allwords)     1
 require 1
 nil     1
@@ -374,7 +388,7 @@ nil     1
 {{#include ../scripts/markov_chain.lua}}
 ```
 
-我们还可以对这个分析器进行一些改进，例如对输出进行排序、打印更好的函数名以及美化输出格式。不过，这个基本的分析器已经非常有用了。
+我们还可以对这个分析器进行数项改进，例如对输出进行排序、打印出更好的函数名字，以及美化输出格式等。不过，这个基本的分析器已经非常有用了。
 
 
 ## 沙箱化
@@ -382,15 +396,15 @@ nil     1
 **Sandboxing**
 
 
-在 [“`_ENV` 与 `load` ” 小节](env.md#_env-与-load) 中我们曾看到使用 `load` 功能，在受限环境中运行 Lua 片段，a Lua chunk，是多么容易。由于 Lua 与外部世界的所有通信，都是通过库函数完成的，因此一旦我们移除这些函数，也就消除了脚本对外部世界，产生任何影响的可能性。不过，在某个脚本浪费大量 CPU 时间或内存下，我们仍然容易受到拒绝服务（denial of service，DoS）攻击。调试钩子形式的反射，为遏制此类攻击提供了一种有趣方法。
+在 [“`_ENV` 与 `load` ”](env.md#_env-与-load) 小节中，我们曾看到使用 `load` 特性，在受限环境中运行某个 Lua 片段是多么容易。由于 Lua 与外部世界的所有通信，都是通过库函数完成的，因此一旦我们移除这些函数，也就消除了脚本对外部世界产生任何影响的可能性。不过，在脚本浪费大量 CPU 时间或内存下，我们仍然容易受到拒绝服务，denial of service，DoS 的攻击。调试钩子形式下的反射，为遏制此类攻击提供了一种有趣方法。
 
 
-第一步是使用计数钩子，限制某个代码块可以执行的指令数量。图 25.4 “带钩子的简单沙箱”，展示了在这种沙箱中，运行给定文件的一个程序。
+第一步是使用计数钩子，限制某个代码块可以执行的指令数量。图 25.4 “使用钩子的简单沙箱”，展示了一个在这种沙箱中运行给定文件的程序。
 
-<a name="f-25.4"></a> **图 25.4，带钩子的简单沙箱**
+<a name="f-25.4"></a> **图 25.4，使用钩子的简单沙箱**
 
 ```lua
-{{#include ../scripts/naive_sandbox.lua}}
+{{#include ../scripts/reflection/naive_sandbox.lua}}
 ```
 
 程序加载给定文件，设置钩子，然后运行该文件。程序将钩子设置为计数钩子，这样 Lua 就会每 100 个指令调用一次钩子。钩子（函数`step`）只是递增一个计数器，并将其与一个固定限制进行比较。可能会出什么问题呢？
@@ -431,7 +445,9 @@ s:find(".*.*.*.*.*.*.*.*.*x")
 
 <a name="f-25.6"></a> **使用钩子禁止对未授权函数的调用**
 
-{{#include scripts/reflection/demo_call_hook.lua}}
+```lua
+{{#include ../scripts/reflection/demo_call_hook.lua}}
+```
 
 
 在该代码中，表 `validfunc` 表示程序可以调用函数的集合。其中函数 `hook` 使用了 `debug` 库访问正被调用的函数，然后检查该函数是否在 `validfunc` 集合中。
