@@ -32,10 +32,10 @@ function download (host, file)
         if status == "closed" then break end
     end
 
-    local filename = file:match( "([^/]+)$" )
-    local f = assert(io.open(filename, "w"))
-    f:write(body)
-    f:close()
+    -- local filename = file:match( "([^/]+)$" )
+    -- local f = assert(io.open(filename, "w"))
+    -- f:write(body)
+    -- f:close()
 
     print(file, #body)
 end
