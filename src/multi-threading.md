@@ -167,7 +167,9 @@ end
 
 <a name="f-26.3"></a> 图 26.3，使用 `select` 的调度器
 
+```lua
 {{#include ../scripts/multi-threading/new_dispatcher.lua:14:38}}
+```
 
 在循环过程中，这个新的调度器会将超时的连接收集到 `timedout` 表中。(请记住，`receive` 会将这些连接传递给 `yield`，因此 `resume` 就会返回他们。）如果所有连接都超时，调度器就会调用 `select` 等待这些连接中的任何一个改变状态。在协程下，这个最终实现的运行速度与之前的实现一样快。此外，由于他不会进行繁忙等待，因此 CPU 占用率就与顺序的实现一样高。
 
