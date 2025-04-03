@@ -3,7 +3,8 @@
 
 - [前言](lua_tutorial.md)
 
-# 第一部分，基础知识
+---
+# 第 I 部分，基础知识
 
 - [入门](getting_started.md)
 - [插曲：八皇后问题](interlude.md)
@@ -14,8 +15,8 @@
 - [外部世界](external.md)
 - [水到渠成](filling_gaps.md)
 
-
-# 第二部分，真实编程
+---
+# 第 II 部分，真实编程
 
 - [闭包](closures.md)
 - [模式匹配](pattern_matching.md)
@@ -28,7 +29,8 @@
 - [模组与包](modules_and_packages.md)
 
 
-# 第三部分，Lua 的各种机制，Lua-isms
+---
+# 第 III 部分，Lua 的各种机制，Lua-isms
 
 - [迭代器与通用的 `for`](iterators.md)
 - [插曲：马科夫链算法](markov_chain_algorithm.md)
@@ -38,3 +40,9 @@
 - [垃圾回收](garbage.md)
 - [协程](coroutines.md)
 - [反射机制](reflection.md)
+- [插曲：使用协程的多线程](multi-threading.md)
+
+
+---
+
+# 第 IV 部分，C API
