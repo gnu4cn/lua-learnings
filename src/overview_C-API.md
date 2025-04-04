@@ -18,6 +18,8 @@ C API 遵循了与 Lua 截然不同的 C 语言 *运作方式* <sup>2</sup>，�
 
 > 注 <sup>2</sup>：原文为 “ the *modus operandi* ”，为拉丁文，英文翻译 “mode of operation”。
 >
+> 注 <sup>3</sup>：咱们可以在编译 Lua 时定义宏 `LUA_USE_APICHECK`，来启用某些检查；在调试咱们的 C 代码时这个选项特别有用。不过，有一些错误在 C 语言中根本无法检测到，比如无效指针等。
+>
 > 参考：[wikipedia: 犯罪手法](https://zh.wikipedia.org/zh-cn/%E7%8A%AF%E7%BD%AA%E6%89%8B%E6%B3%95)
 
 正如其标题所讲的那样，本章的目的是概述从 C 语言中使用 Lua 时，所涉及到的内容。无需试图理解现在发生的所有细节，我们稍后会加以补充。不过，请不要忘记，咱们总是可以在 Lua 参考手册中，找到有关特定函数的更多详细信息。此外，咱们还可以在 Lua 发布本身中，找到这里用到的几个 API 的用例。Lua 的独立解释器 (`lua.c`)，提供了一些应用代码的示例，而标准库 (`lmathlib.c`, `lstrlib.c` 等)，也提供了库代码的示例。
@@ -36,6 +38,11 @@ C API 遵循了与 Lua 截然不同的 C 语言 *运作方式* <sup>2</sup>，�
 ```c
 {{#include ../scripts/overview_C-API/bare-bones_interpreter.c}}
 ```
+
+
+> **译注**：编译此代码时，需执行命令 `gcc -o lua.a bare-bones_interpreter.c -llua -ldl`。
+>
+> 参考：["Undefined reference to" using Lua](https://stackoverflow.com/a/14094300/12288760)
 
 
 其中头文件 `lua.h` 声明了那些由 Lua 提供的基本函数。他包括了创建新的 Lua 环境、调用 Lua 函数、读写环境中的全局变量、注册由 Lua 调用的新函数等的函数。在 `lua.h` 中声明的所有内容，都有着前缀 `lua_`（例如 `lua_pcall`）。
@@ -58,3 +65,34 @@ C 语言中真正的错误处理可能相当复杂，如何处理取决于咱们
 {{#include ../scripts/overview_C-API/err_handler.c}}
 ```
 
+
+稍后我们将进一步讨论应用代码中的错误处理。
+
+
+由于我们可以将 Lua 作为 C 或 C++ 代码编译，因此 `lua.h` 并未包含 C 库中常用的以下模板代码：
+
+
+```c
+#ifdef __cplusplus
+extern "C" {
+#endif
+    ...
+#ifdef __cplusplus
+}
+#endif
+```
+
+如果我们将 Lua 作为 C 代码编译了，却要在 C++ 中使用他，我们可以包含 `lua.hpp` 而非 `lua.h`。其定义如下：
+
+
+```c
+extern "C" {
+#include "lua.h"
+}
+```
+
+
+
+## 堆栈
+
+**The Stack**
