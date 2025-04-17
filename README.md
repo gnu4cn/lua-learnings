@@ -1,9 +1,15 @@
 # Lua 教程
 
 
+
+
 此教程基于 Programming in Lua, 4th edition。
 
 因为在 [Slurm 集群负载调度器](https://slurm.schedmd.com/) 部署中，会用到用 Lua 实现的 [Lmod](https://github.com/TACC/Lmod) 这个环境模块系统，故有必要了解 Lua 这门编程语言。
+
+
+在线阅读：[lua.xfoss.com](https://lua.xfoss.com/)
+
 
 
 ## 前言
