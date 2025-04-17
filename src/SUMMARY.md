@@ -48,3 +48,4 @@
 # 第 IV 部分，C API
 
 - [C API 概述](overview_C-API.md)
+- [扩展咱们的应用](extending.md)
