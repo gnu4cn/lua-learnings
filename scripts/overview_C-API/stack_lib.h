@@ -1,7 +1,9 @@
-#include <stdio.h>
+#ifndef STACK_OP_LIB_H
+#define STACK_OP_LIB_H
+
 #include "lua.h"
-#include "lauxlib.h"
-#include "stack_ops.h"
+
+void error (lua_State *L, const char *fmt, ...);
 
 static void stackDump (lua_State *L) {
     int i;
@@ -34,3 +36,6 @@ static void stackDump (lua_State *L) {
     }
     printf("\n"); /* end the listing */
 }
+
+
+#endif

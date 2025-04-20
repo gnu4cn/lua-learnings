@@ -44,6 +44,7 @@ end
 
 即使在如此简单的配置场景下，也很难预见用户想要什么。但是，只要脚本定义这两个变量，咱们的 C 应用就可以无需更改。
 
+使用 Lua 的最后一个原因，是现在可以很容易地为咱们的程序添加新的配置设施；这种便利促成了一种造成程序更加灵活的态度。
 
 > **译注**：译者测试本小节的代码时，已将函数 `error`、`getglobint` 与 `load` 三个函数放入单独库文件 `extending_lib.h`，并通过头文件 `extending_lib.h` 实现在 C 主文件 `main.h` 中导入，最后通过编译命令 `gcc -o test main.c extending_lib.c -llua -ldl` 编译为二进制可执行文件。三个文件如下。
 
@@ -69,3 +70,9 @@ end
 ```
 
 > 参考：[C header issue: #include and "undefined reference"](https://stackoverflow.com/a/10357161/12288760)
+
+
+## 表的操作
+
+
+

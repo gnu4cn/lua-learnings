@@ -5,4 +5,3 @@
 void load (lua_State *L, const char *fname, int *w, int *h);
 
 #endif
-

@@ -341,7 +341,7 @@ lua_rotate(L, x, 0); /* rotates by zero positions */
 >
 > - 以命令 `gcc -o stack_man demo_stack_man.c -llua -ldl` 编译此程序；
 >
-> - 译者尝试将 `stackDump` 放入到一个 C 头文件 `stack_ops.h` 中，但最后编译失败；
+> - ~~译者尝试将 `stackDump` 放入到一个 C 头文件 `stack_ops.h` 中，但最后编译失败~~；
 >
 > - 运行上述程序的输出为：
 
@@ -355,6 +355,39 @@ true 10 nil true 'hello' nil
 true 10 nil 'hello' nil
 true
 ```
+
+> 在译者于下一章中，将示例程序放入单独 C 头文件的库代码后，回头已将此示例程序也转换为这种形式。并发现 C 代码中的 `static` 函数，应直接写在头文件中，否则会报出似如下错误：
+
+```console
+stack_lib.h:6:13: 警告：‘stackDump’使用过但从未定义
+    6 | static void stackDump (lua_State *L);
+      |             ^~~~~~~~~
+```
+
+> 参考：[static inline functions in a header file](https://stackoverflow.com/a/47821267)
+
+
+- *`stack_lib.c`*
+
+
+```c
+{{#include ../scripts/overview_C-API/stack_lib.c}}
+```
+
+- *`stack_lib.h`*
+
+
+```c
+{{#include ../scripts/overview_C-API/stack_lib.h}}
+```
+
+
+- *`main.c`*
+
+```c
+{{#include ../scripts/overview_C-API/main.c}}
+```
+
 
 
 ## C API 下的错误处理
