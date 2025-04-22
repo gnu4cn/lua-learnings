@@ -1,5 +1,5 @@
-#ifndef STACK_OP_LIB_H
-#define STACK_OP_LIB_H
+#ifndef STACK_LIB_H
+#define STACK_LIB_H
 
 #include "lua.h"
 
