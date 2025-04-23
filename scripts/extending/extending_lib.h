@@ -50,4 +50,6 @@ static void stackDump (lua_State *L) {
     }
     printf("\n"); /* end the listing */
 }
+
+
 #endif
