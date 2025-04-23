@@ -103,6 +103,9 @@ void call_va (lua_State *L, const char *func,
     va_start(vl, sig);
     lua_getglobal(L, func); /* push function */
 
+    //
+    // Pushing arguments for the generic call function
+    //
     for (narg = 0; *sig; narg++) { /* repeat for each argument */
         /* check stack space */
         luaL_checkstack(L, 1, "too many arguments");
@@ -124,12 +127,18 @@ void call_va (lua_State *L, const char *func,
         }
     }
     endargs:
+    //
+    //
+    //
 
     nres = strlen(sig); /* number of expected results */
     if (lua_pcall(L, narg, nres, 0) != 0) /* do the call */
         error(L, "error calling '%s': %s", func,
                 lua_tostring(L, -1));
 
+    //
+    // Retrieving results for the generic call function
+    //
     nres = -nres; /* stack index of first result */
     while (*sig) { /* repeat for each result */
         switch (*sig++) {
@@ -161,5 +170,8 @@ void call_va (lua_State *L, const char *func,
         }
         nres++;
     }
+    //
+    //
+    //
     va_end(vl);
 }
