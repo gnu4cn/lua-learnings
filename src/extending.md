@@ -25,7 +25,7 @@ height = 300
 {{#include ../scripts/extending/getting_user_info.c:5:}}
 ```
 
-其假定咱们已经按照上一章的方法，创建出了个 Lua 状态。其调用 `luaL_loadfile`，从文件 `fname` 中加载 Lua 块，然后调用 `lua_pcall` 运行编译后的程序块。若出现错误（比如咱们配置文件中的语法错误），这些函数就会将错误信息推送到栈上，并返回一个非零的错误代码；然后我们的程序会以索引 `-1`，使用 `lua_tostring` 从栈顶部获取信息。(在 [“首个示例”](./overview_C-API.md#首个示例) 小节中，咱们定义了函数 `error`。）
+其假定咱们已经按照上一章的方法，创建出了个 Lua 状态。其调用 `luaL_loadfile`，从文件 `fname` 中加载 Lua 块，然后调用 `lua_pcall` 运行编译后的程序块。若出现错误（比如咱们配置文件中的语法错误），这些函数就会将错误信息压入到栈上，并返回一个非零的错误代码；然后我们的程序会以索引 `-1`，使用 `lua_tostring` 从栈顶部获取信息。(在 [“首个示例”](./overview_C-API.md#首个示例) 小节中，咱们定义了函数 `error`。）
 
 运行该 Lua 代码块后，程序就需要获取到全局变量的值。为此，其调用了辅助函数 `getglobint`（见图 28.1 [“从配置文件获取用户信息”](#f-28.1) ）两次。该函数首先调用 `lua_getglobal`，其唯一参数（除那个无处不在的 `lua_State` 外），将相应的全局值推入栈上。接下来，`getglobint` 使用 `lua_tointegerx`，将该值转换为整数，确保其有着正确的类型。
 
@@ -126,7 +126,7 @@ blue = getcolorfield(L, "blue");
 我们首先获取全局变量 `background` 的值，确保他是个表；然后咱们使用 `getcolorfield`，获取每个颜色分量。
 
 
-当然，函数 `getcolorfield` 并非 Lua API 的一部分；我们必须定义出他。我们再次面临了多态的问题：潜在有多种版本的 `getcolorfield` 函数，他们在键类型、值类型、错误处理等方面各不相同。Lua API 提供了一个适用于所有类型的函数 `lua_gettable`。他会取得该表在堆栈中的位置，从栈上弹出键，并推送对应值。图 28.2 “一种特定的 `getcolorfield` 实现” 中，定义了咱们专属的 `getcolorfield` 实现。
+当然，函数 `getcolorfield` 并非 Lua API 的一部分；我们必须定义出他。我们再次面临了多态的问题：潜在有多种版本的 `getcolorfield` 函数，他们在键类型、值类型、错误处理等方面各不相同。Lua API 提供了一个适用于所有类型的函数 `lua_gettable`。他会取得该表在堆栈中的位置，从栈上弹出键，并压入对应值。图 28.2 “一种特定的 `getcolorfield` 实现” 中，定义了咱们专属的 `getcolorfield` 实现。
 
 
 <a name="f-28.2"></a> **图 28.2，一种特定 `getcolorfield` 实现**
@@ -149,7 +149,7 @@ int getcolorfield (lua_State *L, const char *key) {
 }
 ```
 
-这种特定实现，假定了颜色表是在栈的顶部；因此，在以 `lua_pushstring` 推送出键后，该表将位于索引 `-2` 处。在返回值前，`getcolorfield` 会从栈上弹出获取到的值，让栈保持在该调用前的级别。
+这种特定实现，假定了颜色表是在栈的顶部；因此，在以 `lua_pushstring` 压入键后，该表将位于索引 `-2` 处。在返回值前，`getcolorfield` 会从栈上弹出获取到的值，让栈保持在该调用前的级别。
 
 
 我们将进一步扩展咱们的示例，而为用户引入颜色名称。用户仍然可以使用颜色表，但也可以使用更常见颜色的一些预定义名字。为实现这一功能，我们需要 C 应用中的一个颜色表：
@@ -313,4 +313,201 @@ void lua_createtable (lua_State *L, int narr, int nrec);
 ## 调用 Lua 函数
 
 
+Lua 的一大长处在于，配置文件可定义出由应用调用的一些函数。例如，我们可以用 C 编写一个绘制某函数图像的应用，而在 Lua 中定义这个要绘制的函数。
+
+
+调用函数的 API 协议很简单：首先，我们压入要调用的函数；其次，压入该调用的参数；然后，使用 `lua_pcall` 完成具体调用；最后，从栈上获取结果。
+
+
+举个例子，假设我们的配置文件中有个如下的函数：
+
+
+```lua
+function f (x, y)
+    return (x^2 * math.sin(y)) / (1 - x)
+end
+```
+
+
+我们打算在 C 中，对给定的 `x` 和 `y` 计算 `z = f(x，y)`。假设我们已经打开了 Lua 库并运行了该配置文件，则图 28.4 “从 C 调用某个 Lua 函数” 会的函数 `f` 计算该代码。
+
+
+<a name="f-28.4"></a> **图 28.4，从 C 调用某个 Lua 函数**
+
+
+```c
+/* call a function 'f' defined in Lua */
+double f (lua_State *L, double x, double y) {
+    int isnum;
+    double z;
+
+    /* push functions and arguments */
+    lua_getglobal(L, "f"); /* function to be called */
+    lua_pushnumber(L, x); /* push 1st argument */
+    lua_pushnumber(L, y); /* push 2nd argument */
+
+    /* do the call (2 arguments, 1 result) */
+    if (lua_pcall(L, 2, 1, 0) != LUA_OK)
+        error(L, "error running function 'f': %s",
+                lua_tostring(L, -1));
+
+    /* retrieve result */
+    z = lua_tonumberx(L, -1, &isnum);
+
+    if (!isnum)
+        error(L, "function 'f' should return a number");
+
+    lua_pop(L, 1); /* pop returned value */
+    return z;
+}
+```
+
+其中 `lua_pcall` 的第二和第三个参数，分别是我们传递的参数个数，以及我们想要的结果个数。第四个参数表示消息处理函数；我们稍后将讨论他。与 Lua 赋值中一样，`lua_pcall` 会根据我们的要求，调整具体结果的数量，根据需要压入一些 `nil` 或丢弃额外值。在压入结果前，`lua_pcall` 从栈上删除该函数及其参数。当某个函数返回了多个结果时，会先压入第一个结果；例如，在有三个结果时，第一个结果将位于索引 `-3` 处，而最后一个结果将位于索引 `-1` 处。
+
+
+若当 `lua_pcall` 运行时出现任何错误，`lua_pcall` 会返回一个错误代码；此外，他还会将错误消息压入到栈上（而仍然会弹出该函数及其参数）。不过，在压入该消息前，在有消息处理函数时，`lua_pcall` 会调用消息处理函数。要指定某个消息处理函数，我们就要使用 `lua_pcall` 的最后一个参数。`0` 表示没有消息处理函数；也就是说，最终的错误消息就是原始消息。否则，这个参数应该是消息处理函数所在的栈上索引。在这种情况下，我们应该将处理函数，压入栈上要调用函数的下方。
+
+
+对于常规错误，`lua_pcall` 会返回错误代码 `LUA_ERRRUN`。有两种特殊错误，保留了不同代码，因为他们从不会运行消息处理程序。第一种是内存分配错误。对于此类错误，`lua_pcall` 返回 `LUA_ERRMEM`。第二种是 Lua 在运行消息处理程序时发生的错误。在这种情况下，再次调用处理程序没有什么用处，因此 `lua_pcall` 会立即返回代码 `LUA_ERRERR`。从 5.2 版开始，Lua 区分了第三种错误：当终结器抛出错误时，`lua_pcall` 会返回代码 `LUA_ERRGCMM`（ *某个 GC 元方法中的错误* ）。这个代码表示错误与调用本身没有直接关系。
+
+
+> 译注：以下是调用 `f` 这个函数的主程序代码。
+
+```c
+{{#include ../scripts/extending/calling_lua_func.c}}
+```
+
+> 注意其中的 `luaL_openlibs(L)`，这是因为 Lua 函数 `f` 中用到 `math.sin` 函数而需要导入 `math` 库。否则将报出错误：
+
+```console
+error running function 'f': conf.lua:7: attempt to index a nil value (global 'math')%
+```
+
+
+## 通用的调用函数
+
+作为一个更加高级的示例，我们将使用 C 中的 `stdarg` 设施，构建一个用于调用 Lua 函数的封装器。我们称之为 `call_va` 的封装函数，会取一个要调用的全局函数名字、一个描述参数及结果类型的字符串，然后是个参数的列表，最后是个指向存储结果变量的指针；他处理了 API 的所有细节。有了这个函数，我们就可以将图 28.4 [“从 C 语言调用 Lua 函数”](#f-28.4) 中示例，写为下面这样：
+
+
+```c
+call_va(L, "f", "dd>d", x, y, &z);
+```
+
+其中字符串 `"dd>d"` 表示 “两个双精度类型的参数，一个双精度类型的结果”。这个描述符可以使用字母 `d` 表示 `double`，`i` 表示 `integer`，`s` 表示字符串；用 `>` 分隔参数和结果。若函数没有结果，则 `>` 为可选项。
+
+
+图 28.5 “通用调用函数” 给出了 `call_va` 的实现。
+
+
+<a name="f-28.5"></a> **图 28.5，通用调用函数**
+
+
+```c
+void call_va (lua_State *L, const char *func,
+        const char *sig, ...) {
+    va_list vl;
+    int narg, nres; /* number of arguments and results */
+
+    va_start(vl, sig);
+    lua_getglobal(L, func); /* push function */
+
+    //
+    // Pushing arguments for the generic call function
+    //
+    for (narg = 0; *sig; narg++) { /* repeat for each argument */
+        /* check stack space */
+        luaL_checkstack(L, 1, "too many arguments");
+
+        switch (*sig++) {
+            case 'd': /* double argument */
+                lua_pushnumber(L, va_arg(vl, double));
+                break;
+            case 'i': /* int argument */
+                lua_pushinteger(L, va_arg(vl, int));
+                break;
+            case 's': /* string argument */
+                lua_pushstring(L, va_arg(vl, char *));
+                break;
+            case '>': /* end of arguments */
+                goto endargs; /* break the loop */
+            default:
+                error(L, "invalid option (%c)", *(sig - 1));
+        }
+    }
+    endargs:
+    //
+    //
+    //
+
+    nres = strlen(sig); /* number of expected results */
+    if (lua_pcall(L, narg, nres, 0) != 0) /* do the call */
+        error(L, "error calling '%s': %s", func,
+                lua_tostring(L, -1));
+
+    //
+    // Retrieving results for the generic call function
+    //
+    nres = -nres; /* stack index of first result */
+    while (*sig) { /* repeat for each result */
+        switch (*sig++) {
+            case 'd': { /* double result */
+                          int isnum;
+                          double n = lua_tonumberx(L, nres, &isnum);
+                          if (!isnum)
+                              error(L, "wrong result type");
+                          *va_arg(vl, double *) = n;
+                          break;
+                      }
+            case 'i': { /* int result */
+                          int isnum;
+                          int n = lua_tointegerx(L, nres, &isnum);
+                          if (!isnum)
+                              error(L, "wrong result type");
+                          *va_arg(vl, int *) = n;
+                          break;
+                      }
+            case 's': { /* string result */
+                          const char *s = lua_tostring(L, nres);
+                          if (s == NULL)
+                              error(L, "wrong result type");
+                          *va_arg(vl, const char **) = s;
+                          break;
+                      }
+            default:
+                      error(L, "invalid option (%c)", *(sig - 1));
+        }
+        nres++;
+    }
+    //
+    //
+    //
+
+    va_end(vl);
+}
+```
+
+尽管其具备通用性，但该函数仍遵循了与第一个示例同样的步骤：压入函数、压入参数、执行调用并获取结果。
+
+
+该函数的大部分代码都很简单，但也有一些微妙之处。首先，他不需要检查 `func` 是否是个函数：`lua_pcall` 会触发该错误。其次，由于他可以压入任意数量的参数，因此必须确保有足够的栈空间。第三，由于函数可以返回字符串，`call_va` 无法从栈上弹出结果。必须由调用者在使用完任何字符串的结果后（或将其复制到适当的缓冲区后）将其弹出。
+
+
+## 练习
+
+
+<a name="exercise-28.1"></a> 练习 28.1：请编写一个读取定义了从数字到数字的函数 `f`，并绘制该函数的 C 程序。(咱们无需做任何花哨的事情；该程序可像我们在 [“编译”](./cee.md#编译) 小节中所做的那样，绘制出打印 ASCII 星号的结果。）
+
+<a name="exercise-28.2"></a> 练习 28.2： 修改函数 `call_va`（图 28.5，[“通用调用函数”](#f-28.5)）以处理布尔值。
+
+<a name="exercise-28.3"></a> 练习 28.3：假设有个程序需要监控多个气象站。在程序内部，他会使用一个四字节的字符串，表示每个气象站，并有个配置文件将每个字符串映射到相应气象站的实际 URL。Lua 配置文件可以通过以下几种方式实现这种映射：
+
+- 一堆全局变量，每个台站一个变量；
+- 将字符串代码映射到 URL 的一个表；
+- 将字符串代码映射到 URL 的一个函数。
+
+
+讨论每种方案的利弊，要考虑台站总数、URL 的规律性（例如，从代码到 URL 可能有一个形成规则）、用户类型等。
+
+
+（End）
 

@@ -10,10 +10,14 @@ struct ColorTable {
 };
 
 void load (lua_State *L, const char *fname, int *w, int *h);
+void _load (lua_State *L, const char *fname);
 int getcolorfield (lua_State *L, const char *key);
 void error (lua_State *L, const char *fmt, ...);
 void setcolorfield (lua_State *L, const char *index, int value);
 void setcolor (lua_State *L, struct ColorTable *ct);
+double f (lua_State *L, double x, double y);
+void call_va (lua_State *L, const char *func, const char *sig, ...);
+
 
 static void stackDump (lua_State *L) {
     int i;
