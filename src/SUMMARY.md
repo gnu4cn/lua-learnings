@@ -49,4 +49,4 @@
 
 - [C API 概述](overview_C-API.md)
 - [扩展咱们的应用](extending.md)
-- [在 Lua 中调用 C](./calling_c.md)
+- [在 Lua 中调用 C](calling_c.md)
