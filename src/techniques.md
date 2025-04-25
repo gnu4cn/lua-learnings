@@ -78,20 +78,21 @@ int l_map (lua_State *L) {
 
 > **译注**：译者结合上一章中 [“C 模组”](./calling_c.md#C-模组) 中提到的，将 C 模组构建为 `.so` 方法，成功构建出 `mylib.so` 的动态链接库。包含以下三个文件。
 >
-> - *tips_lib.c*
+
+
+- *tips_lib.c*
 
 ```c
 {{#include ../scripts/c_func_tips/tips_lib.c}}
 ```
 
-> - *tips_lib.h*
->
+- *tips_lib.h*
 
 ```c
 {{#include ../scripts/c_func_tips/tips_lib.c}}
 ```
 
-> - *demo_map.lua*
+- *demo_map.lua*
 
 ```lua
 {{#include ../scripts/c_func_tips/demo_map.lua}}
@@ -121,3 +122,79 @@ $ lua demo_map.lua
 
 
 ## 操作字符串
+
+当某个 C 函数从 Lua 收到一个字符串参数时，他必须遵守的规则只有两条：
+
+- 在使用时不从栈上弹出该字符串；
+- 以及绝不修改该字符串。
+
+
+而当 C 函数需要创建一个返回给 Lua 的字符串时，情况就变得更加棘手了。现在，要由 C 代码负责处理缓冲区的分配/解分配、缓冲区溢出以及其他困难的任务。因此，Lua API 提供了一些帮助完成这些任务的函数。
+
+
+标准 API 提供了对两种最基本字符串操作的支持：子字符串提取及字符串连接。要提取某个子字符串，请记住基本操作 `lua_pushlstring` 会获取字符串长度作为额外参数。因此，若我们打算传递字符串 `s` 从位置 `i` 到 `j` 范围的子字符串，只需执行以下操作：
+
+```c
+lua_pushlstring(L, s + i, j - i + 1);
+```
+
+举个例子，假设咱们需要一个根据给定分隔符（某个单独字符）切分字符串，并返回一个包含子字符串的表的函数。例如，调用 `split("hi:ho:there", ":")` ，应返回表 `{"hi"、"ho"、"there"}`。图 30.2 “切分字符串” 展示了该函数的一种简单实现。
+
+
+<a name="f-30.2"></a> **图 30.2，切分字符串**
+
+
+```c
+static int l_split (lua_State *L) {
+    const char *s = luaL_checkstring(L, 1); /* subject */
+    const char *sep = luaL_checkstring(L, 2); /* separator */
+    const char *e;
+    int i = 1;
+
+    lua_newtable(L); /* result table */
+
+    /* repeat for each separator */
+    while ((e = strchr(s, *sep)) != NULL) {
+        lua_pushlstring(L, s, e - s); /* push substring */
+        lua_rawseti(L, -2, i++); /* insert it in table */
+        s = e + 1; /* skip separator */
+    }
+
+    /* insert last substring */
+    lua_pushstring(L, s);
+    lua_rawseti(L, -2, i);
+
+    return 1; /* return the table */
+}
+```
+
+
+其未使用缓冲区，并可处理任意长的字符串： Lua 负责了所有的内存分配。(由于我们创建的表，我们知道他没有元表，因此我们可以使用原始操作来处理他。）
+
+
+要连接字符串，Lua 提供了一个名为 `lua_concat` 的特定函数。其等同于 Lua 中的连接运算符 (`..`) ：他会将数字转换为字符串，并在必要时触发元方法。此外，他可以同时连接两个以上的字符串。调用 `lua_concat(L, n)` 会连接（并弹出）栈上最顶部的 `n` 个值，并压入结果。
+
+
+另一个有用的函数是 `lua_pushfstring`：
+
+
+```c
+const char *lua_pushfstring (lua_State *L, const char *fmt, ...);
+```
+
+他与 C 函数 `sprintf` 有些类似，在于他会根据某个格式字符串，及一些额外参数创建出一个字符串。但与 `sprintf` 不同的是，我们无需提供缓冲区。Lua 会为我们动态地创建字符串，字符串的大小视需要而定。该函数将生成的字符串压入栈，并返回一个指向结果的指针。该函数接受以下指令：
+
+
+| 指令 | 意义 |
+| :-- | :-- |
+| `%s` | 插入一个以零终止的字符串 |
+| `%d` | 插入一个 `int` |
+| `%f` | 插入一个 Lua 的浮点数 |
+| `%p` | 插入一个指针 |
+| `%I` | 插入一个 Lua 的整数 |
+| `%c` | 将一个 `int` 作为一个 1 字节的字符插入 |
+| `%U` | 将一个 `int` 作为一个 UTF-8 的字节序列插入 |
+| `%%` | 插入一个百分号 |
+
+
+

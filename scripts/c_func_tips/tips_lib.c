@@ -25,9 +25,9 @@ int l_map (lua_State *L) {
 
 static const struct luaL_Reg mylib [] = {
     {"map", l_map},
+    {"split", l_split},
     {NULL, NULL} /* sentinel */
 };
-
 
 int luaopen_mylib (lua_State *L) {
     luaL_newlib(L, mylib);
