@@ -4,9 +4,6 @@
 #include <string.h>
 #include "lua.h"
 
-extern int l_map (lua_State *L);
-extern int luaopen_mylib (lua_State *L);
-
 static int l_split (lua_State *L) {
     const char *s = luaL_checkstring(L, 1); /* subject */
     const char *sep = luaL_checkstring(L, 2); /* separator */
@@ -27,6 +24,31 @@ static int l_split (lua_State *L) {
     lua_rawseti(L, -2, i);
 
     return 1; /* return the table */
+}
+
+
+static int tconcat (lua_State *L) {
+    luaL_Buffer b;
+    int i, n;
+
+    luaL_checktype(L, 1, LUA_TTABLE);
+    n = luaL_len(L, 1);
+    luaL_buffinit(L, &b);
+
+    for (i = 1; i <= n; i++) {
+        lua_geti(L, 1, i); /* get string from table */
+        luaL_addvalue(&b); /* add it to the buffer */
+    }
+
+    luaL_pushresult(&b);
+    return 1;
+}
+
+static int counter (lua_State *L) {
+    int val = lua_tointeger(L, lua_upvalueindex(1));
+    lua_pushinteger(L, ++val); /* new value */
+    lua_copy(L, -1, lua_upvalueindex(1)); /* update upvalue */
+    return 1; /* return new value */
 }
 
 #endif

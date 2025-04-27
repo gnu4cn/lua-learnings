@@ -1,4 +1,3 @@
-
 #ifndef EXTENDING_LIB_H
 #define EXTENDING_LIB_H
 

@@ -27,6 +27,12 @@ static int l_sin (lua_State *L) {
 ```
 
 
+> **译注**：由于这里用到 C 的 `math.h` 库，因此在不仅要 `#include <math.h>`，在编译时还要加上 GCC 的 `-lm` 命令行开关。
+
+```console
+gcc -o test c_func.c calling_c_lib.c -llua -ldl -lm
+```
+
 注册到 Lua 的任何函数，都必须有以下这种同样原型，即在 `lua.h` 中定义为 `lua_CFunction`：
 
 
