@@ -607,13 +607,13 @@ t = filter({1, 3, 20, -4, 5}, function (x) return x < 5 end)
 ```lua
 lib.settrans (table) -- set the transliteration table
 lib.gettrans () -- get the transliteration table
-lib.transliterate(s) -- transliterate 's' according to the
-                        current table
+lib.transliterate(s) -- transliterate 's' according to the current table
 ```
 
 请使用注册表，保存音译表；
 
 <a name="exercise-30.5"></a> 练习 30.5：重复前一练习，使用上值保存音译表；
+
 <a name="exercise-30.6"></a> 练习 30.6：将音译表作为库状态的一部分，而不是作为 `transliterate` 函数的参数，你认为这种设计好吗？
 
 
