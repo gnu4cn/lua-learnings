@@ -51,3 +51,4 @@
 - [扩展咱们的应用](extending.md)
 - [在 Lua 中调用 C](calling_c.md)
 - [编写 C 函数的一些技巧](techniques.md)
+- [用 C 创建用户定义类型](types.md)
