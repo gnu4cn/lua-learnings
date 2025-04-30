@@ -53,3 +53,4 @@
 - [编写 C 函数的一些技巧](techniques.md)
 - [用 C 创建用户定义类型](types.md)
 - [管理资源](resource.md)
+- [线程与状态](threads_n_states.md)
