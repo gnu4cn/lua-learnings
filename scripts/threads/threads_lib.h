@@ -7,6 +7,10 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
+static int ll_start (lua_State *L);
+static int ll_send (lua_State *L);
+static int ll_receive (lua_State *L);
+static int ll_exit (lua_State *L);
 int luaopen_lproc (lua_State *L);
 
 typedef struct Proc {
@@ -151,8 +155,6 @@ static void openlibs (lua_State *L) {
     registerlib(L, "utf8", luaopen_utf8);
     registerlib(L, "debug", luaopen_debug);
 }
-
-int luaopen_lproc (lua_State *L);
 
 static void *ll_thread (void *arg) {
     lua_State *L = (lua_State *)arg;
